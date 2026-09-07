@@ -93,7 +93,7 @@ void *Detour_DetourFunction64(Detour *This, uint64_t FunctionPtr, void *HookPtr)
         return NULL;
     }
 
-    int res = sceKernelMmap(0, sizeof(This->JumpInstructions64), VM_PROT_ALL, 0x1000 | 0x2, -1, 0, &This->TrampolinePtr);
+    int res = sceKernelMmap(0, sizeof(This->JumpInstructions64), VM_PROT_ALL, 0x2000 | 0x1000 | 0x2, -1, 0, &This->TrampolinePtr);
 
     if (res < 0 || This->TrampolinePtr == 0) {
 #if (DEBUG) == 1
@@ -113,7 +113,7 @@ void *Detour_DetourFunction64(Detour *This, uint64_t FunctionPtr, void *HookPtr)
 
     //Allocate Executable memory for stub and write instructions to stub and a jump back to original execution.
     This->StubSize = (InstructionSize + sizeof(This->JumpInstructions64));
-    res = sceKernelMmap(0, This->StubSize, VM_PROT_ALL, 0x1000 | 0x2, -1, 0, &This->StubPtr);
+    res = sceKernelMmap(0, This->StubSize, VM_PROT_ALL, 0x2000 | 0x1000 | 0x2, -1, 0, &This->StubPtr);
 
     if (res < 0 || This->StubPtr == 0) {
 #if (DEBUG) == 1
@@ -166,9 +166,9 @@ void *Detour_DetourFunction32(Detour *This, uint64_t FunctionPtr, void *HookPtr)
         return Detour_DetourFunction64(This, (uint64_t)(TrampolineOffest + FunctionPtr + 5), HookPtr);
     }
 
-    This->TrampolinePtr = malloc(sizeof(This->JumpInstructions64));
+    int res = sceKernelMmap(0, sizeof(This->JumpInstructions64), VM_PROT_ALL, 0x2000 | 0x1000 | 0x2, -1, 0, &This->TrampolinePtr);
 
-    if (This->TrampolinePtr == 0) {
+    if (res < 0 || This->TrampolinePtr == 0) {
 #if (DEBUG) == 1
         klog("[Detour] %s: malloc failed.\n", __FUNCTION__);
 #endif
@@ -187,7 +187,7 @@ void *Detour_DetourFunction32(Detour *This, uint64_t FunctionPtr, void *HookPtr)
     //Allocate Executable memory for stub and write instructions to stub and a jump back to original execution.
     This->StubSize = (InstructionSize + sizeof(This->JumpInstructions64));
 
-    int res = sceKernelMmap(0, This->StubSize, VM_PROT_ALL, 0x1000 | 0x2, -1, 0, &This->StubPtr);
+    res = sceKernelMmap(0, This->StubSize, VM_PROT_ALL, 0x2000 | 0x1000 | 0x2, -1, 0, &This->StubPtr);
 
     if (res < 0 || This->StubPtr == 0) {
 #if (DEBUG) == 1

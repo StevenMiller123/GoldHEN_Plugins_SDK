@@ -35,7 +35,7 @@ void Patcher_Install_Patch(Patcher *This, uint64_t Address, const void* Data, si
     sceKernelMprotect((void*)Address, Length, VM_PROT_ALL);
 
     //Backup data.
-    int res = sceKernelMmap(0, Length, VM_PROT_ALL, 0x1000 | 0x2, -1, 0, &This->OriginalData);
+    int res = sceKernelMmap(0, Length, VM_PROT_ALL, 0x2000 | 0x1000 | 0x2, -1, 0, &This->OriginalData);
     if (res < 0)
     {
 #if (DEBUG) == 1
