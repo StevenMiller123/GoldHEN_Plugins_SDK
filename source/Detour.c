@@ -154,13 +154,6 @@ void *Detour_DetourFunction32(Detour *This, uint64_t FunctionPtr, void *HookPtr)
         return NULL;
     }
 
-    if ((memcmp((void*) FunctionPtr, This->JumpInstructions32, 1) == 0) && InstructionSize == sizeof(This->JumpInstructions32)) {
-        uint32_t TrampolineOffest = *(uint32_t*)(FunctionPtr + 1);
-        klog("[Detour] %s: Trampoline found at %p (Offset: %X). Detour called for Trampoline...\n", __FUNCTION__, (void*)(TrampolineOffest + FunctionPtr + 5), TrampolineOffest);
-        This->Mode = DetourMode_x64;
-        return Detour_DetourFunction64(This, (uint64_t)(TrampolineOffest + FunctionPtr + 5), HookPtr);
-    }
-
     int res = sceKernelMmap(0, sizeof(This->JumpInstructions64), VM_PROT_ALL, 0x2000 | 0x1000 | 0x2, -1, 0, &This->TrampolinePtr);
 
     if (res < 0 || This->TrampolinePtr == 0) {
