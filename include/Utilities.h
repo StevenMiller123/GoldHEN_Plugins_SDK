@@ -59,6 +59,13 @@ typedef unsigned long HA;
     Detour_DetourFunction( (&(Detour_##name)), (uint64_t)name, (void *)(&(name##_hook)) ); \
 } while (0)
 
+// 16bit
+#define HOOK16(name) do { \
+    klog("%s:%d HOOK16() Create " #name "\n", __FUNCTION__, __LINE__);  \
+    Detour_Construct( (&(Detour_##name)), DetourMode_x16);                                 \
+    Detour_DetourFunction( (&(Detour_##name)), (uint64_t)name, (void *)(&(name##_hook)) ); \
+} while (0)
+
 // tries to pass arguments
 #define HOOK_CONTINUE(name, type, ...) Detour_Stub( (&(Detour_##name)) , type , __VA_ARGS__ )
 
