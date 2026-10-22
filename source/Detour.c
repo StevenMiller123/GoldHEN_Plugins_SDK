@@ -207,6 +207,14 @@ void* Detour_DetourFunction16(Detour* This, uint64_t FunctionPtr, void* HookPtr)
         return NULL;
     }
 
+    for (int i = 1; i <= sizeof(This->JumpInstructions32); i++) {
+        if (*(uint8_t*)(FunctionPtr - i) != 0x90) {
+            klog("[Detour] %s: Hooking Requires a minimum of %d bytes before the function to write jump!\n", __FUNCTION__,
+                 (int)sizeof(This->JumpInstructions32));
+            return NULL;
+        }
+    }
+
     This->TrampolinePtr = malloc(sizeof(This->JumpInstructions64));
 
     if (This->TrampolinePtr == 0) {
@@ -267,7 +275,6 @@ void Detour_RestoreFunction(Detour *This) {
             
             case DetourMode_x64:
                 JmpAddress = Detour_GetJumpAddress64(This, This->FunctionPtr);
-
                 RestorePtr = (JmpAddress != (uint64_t)This->TrampolinePtr) ? This->TrampolinePtr : This->FunctionPtr;
                 RestoreSize = This->StubSize - sizeof(This->JumpInstructions64);
                 break;
