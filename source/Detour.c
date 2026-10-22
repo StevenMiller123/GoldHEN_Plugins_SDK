@@ -70,6 +70,16 @@ uint64_t Detour_GetJumpAddress64(Detour *This, void *Address) {
 }
 
 void *Detour_DetourFunction(Detour *This, uint64_t FunctionPtr, void *HookPtr) {
+    // Some functions start with a 32-bit relative jump. Instead of writing to this jump,
+    // write the Detour to the jump location instead.
+    if (*(uint8_t*)FunctionPtr == 0xE9) {
+        uint64_t original = FunctionPtr;
+        int offset = *(uint32_t*)(FunctionPtr + 1);
+        // patch the function it jumps to.
+        FunctionPtr += sizeof(This->JumpInstructions32) + offset;
+        klog("[Detour] %s: Redirecting hook from 0x%lX to 0x%lX\n", __FUNCTION__, original, FunctionPtr);
+    }
+
     switch (This->Mode) {
         case DetourMode_x16:
             return Detour_DetourFunction16(This, FunctionPtr, HookPtr);
