@@ -99,9 +99,8 @@ void *Detour_DetourFunction64(Detour *This, uint64_t FunctionPtr, void *HookPtr)
 
     uint32_t InstructionSize = Detour_GetInstructionSize(This, FunctionPtr, sizeof(This->JumpInstructions64));
 
-    klog("[Detour] %s: - InstructionSize: %u\n", __FUNCTION__, InstructionSize);
-
     if (InstructionSize < sizeof(This->JumpInstructions64)) {
+        klog("[Detour] %s: InstructionSize: %u\n", __FUNCTION__, InstructionSize);
         klog("[Detour] %s: Hooking Requires a minimum of %d bytes to write jump!\n", __FUNCTION__, (int)sizeof(This->JumpInstructions64));
         return NULL;
     }
@@ -138,8 +137,6 @@ void *Detour_DetourFunction64(Detour *This, uint64_t FunctionPtr, void *HookPtr)
     memset((void *) FunctionPtr, 0x90, InstructionSize);
     Detour_WriteJump64(This, (void *) FunctionPtr, (uint64_t) This->TrampolinePtr);
 
-    klog("[Detour] %s: Detour Written Successfully! (FunctionPtr: %p - HookPtr: %p - HookPtrTrampoline: %p - StubPtr: %p - StubSize: %zu)\n", __FUNCTION__, This->FunctionPtr, This->HookPtr, This->TrampolinePtr, This->StubPtr, This->StubSize);
-
     return This->StubPtr;
 }
 
@@ -151,9 +148,8 @@ void *Detour_DetourFunction32(Detour *This, uint64_t FunctionPtr, void *HookPtr)
 
     size_t InstructionSize = Detour_GetInstructionSize(This, FunctionPtr, sizeof(This->JumpInstructions32));
 
-    klog("[Detour] %s: - InstructionSize: %zu\n", __FUNCTION__, InstructionSize);
-
     if (InstructionSize < sizeof(This->JumpInstructions32)) {
+        klog("[Detour] %s: InstructionSize: %zu\n", __FUNCTION__, InstructionSize);
         klog("[Detour] %s: Hooking Requires a minimum of %d bytes to write jump!\n", __FUNCTION__, (int)sizeof(This->JumpInstructions64));
         return NULL;
     }
@@ -198,8 +194,6 @@ void *Detour_DetourFunction32(Detour *This, uint64_t FunctionPtr, void *HookPtr)
     memset((void *) FunctionPtr, 0x90, InstructionSize);
     Detour_WriteJump32(This, (void *) FunctionPtr, (uint64_t) This->TrampolinePtr);
 
-    klog("[Detour] %s: Detour Written Successfully! (FunctionPtr: %p - HookPtr: %p - HookPtrTrampoline: %p - StubPtr: %p - StubSize: %zu)\n", __FUNCTION__, This->FunctionPtr, This->HookPtr, This->TrampolinePtr, This->StubPtr, This->StubSize);
-
     return This->StubPtr;
 }
 
@@ -213,9 +207,8 @@ void* Detour_DetourFunction16(Detour* This, uint64_t FunctionPtr, void* HookPtr)
     size_t InstructionSize =
         Detour_GetInstructionSize(This, FunctionPtr, sizeof(This->JumpInstructions16));
 
-    klog("[Detour] %s: - InstructionSize: %zu\n", __FUNCTION__, InstructionSize);
-
     if (InstructionSize < sizeof(This->JumpInstructions16)) {
+        klog("[Detour] %s: InstructionSize: %zu\n", __FUNCTION__, InstructionSize);
         klog("[Detour] %s: Hooking Requires a minimum of %d bytes to write jump!\n", __FUNCTION__,
              (int)sizeof(This->JumpInstructions64));
         return NULL;
@@ -258,11 +251,6 @@ void* Detour_DetourFunction16(Detour* This, uint64_t FunctionPtr, void* HookPtr)
 
     // Write jump from function to hook.
     Detour_WriteJump32(This, (void*)(FunctionPtr - 5), (uint64_t)This->TrampolinePtr);
-
-    klog("[Detour] %s: Detour Written Successfully! (FunctionPtr: %p - HookPtr: %p - "
-         "HookPtrTrampoline: %p - StubPtr: %p - StubSize: %zu)\n",
-         __FUNCTION__, This->FunctionPtr, This->HookPtr, This->TrampolinePtr, This->StubPtr,
-         This->StubSize);
 
     return This->StubPtr;
 };
