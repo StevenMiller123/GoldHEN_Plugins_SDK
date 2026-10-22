@@ -34,7 +34,7 @@ size_t Detour_GetInstructionSize(Detour *This, uint64_t Address, size_t MinSize)
         hde64s hs;
         uint32_t temp = hde64_disasm((void *) (Address + InstructionSize), &hs);
 
-        // if (hs.flags & F_ERROR) return 0;
+        if (hs.flags & F_ERROR) return 0;
 
         InstructionSize += temp;
     }
