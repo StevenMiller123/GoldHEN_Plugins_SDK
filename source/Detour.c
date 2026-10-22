@@ -203,7 +203,7 @@ void* Detour_DetourFunction16(Detour* This, uint64_t FunctionPtr, void* HookPtr)
     if (InstructionSize < sizeof(This->JumpInstructions16)) {
         klog("[Detour] %s: InstructionSize: %zu\n", __FUNCTION__, InstructionSize);
         klog("[Detour] %s: Hooking Requires a minimum of %d bytes to write jump!\n", __FUNCTION__,
-             (int)sizeof(This->JumpInstructions64));
+             (int)sizeof(This->JumpInstructions16));
         return NULL;
     }
 
