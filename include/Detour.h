@@ -21,7 +21,8 @@ extern "C" {
 
 typedef enum _GHSDK_DetourMode {
     DetourMode_x64,
-    DetourMode_x32
+    DetourMode_x32,
+    DetourMode_x16
 } DetourMode;
 
 typedef struct _GHSDK_Detour {
@@ -33,6 +34,7 @@ typedef struct _GHSDK_Detour {
     void *HookPtr;
     uint8_t JumpInstructions64[14];  // jmp QWORD PTR[Address]
     uint8_t JumpInstructions32[05];  // jmp 32
+    uint8_t JumpInstructions16[02];  // jmp -7 -> 0xEB 0xF9
 } Detour;
 
 // usage:

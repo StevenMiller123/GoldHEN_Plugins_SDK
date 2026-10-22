@@ -15,10 +15,12 @@
 size_t Detour_GetInstructionSize(Detour *This, uint64_t Address, size_t MinSize);
 void Detour_WriteJump64(Detour *This, void *Address, uint64_t Destination);
 void Detour_WriteJump32(Detour *This, void *Address, uint64_t Destination);
+void Detour_WriteJump16(Detour *This, void *Address);
 uint64_t Detour_GetJumpAddress64(Detour *This, void *Address);
 void *Detour_DetourFunction(Detour *This, uint64_t FunctionPtr, void *HookPtr);
 void *Detour_DetourFunction64(Detour *This, uint64_t FunctionPtr, void *HookPtr);
 void *Detour_DetourFunction32(Detour *This, uint64_t FunctionPtr, void *HookPtr);
+void *Detour_DetourFunction16(Detour *This, uint64_t FunctionPtr, void *HookPtr);
 void Detour_RestoreFunction(Detour *This);
 void Detour_Construct(Detour *This, DetourMode Mode);
 void Detour_Destroy(Detour *This);
@@ -58,12 +60,19 @@ void Detour_WriteJump32(Detour *This, void *Address, uint64_t Destination) {
     memcpy(Address, This->JumpInstructions32, sizeof(This->JumpInstructions32));
 }
 
+void Detour_WriteJump16(Detour* This, void* Address) {
+    sceKernelMprotect((void *) Address, sizeof(This->JumpInstructions16), VM_PROT_ALL);
+    memcpy(Address, This->JumpInstructions16, sizeof(This->JumpInstructions16));
+}
+
 uint64_t Detour_GetJumpAddress64(Detour *This, void *Address) {
     return *(uint64_t * )((uint64_t)Address + 6);
 }
 
 void *Detour_DetourFunction(Detour *This, uint64_t FunctionPtr, void *HookPtr) {
     switch (This->Mode) {
+        case DetourMode_x16:
+            return Detour_DetourFunction16(This, FunctionPtr, HookPtr);
         case DetourMode_x32:
             return Detour_DetourFunction32(This, FunctionPtr, HookPtr);
         case DetourMode_x64:
@@ -184,6 +193,70 @@ void *Detour_DetourFunction32(Detour *This, uint64_t FunctionPtr, void *HookPtr)
     return This->StubPtr;
 }
 
+void* Detour_DetourFunction16(Detour* This, uint64_t FunctionPtr, void* HookPtr) {
+    if (!FunctionPtr || !HookPtr) {
+        klog("[Detour] %s: FunctionPtr or HookPtr NULL (%p -> %p)\n", __FUNCTION__,
+             (void*)FunctionPtr, HookPtr);
+        return NULL;
+    }
+
+    size_t InstructionSize =
+        Detour_GetInstructionSize(This, FunctionPtr, sizeof(This->JumpInstructions16));
+
+    klog("[Detour] %s: - InstructionSize: %zu\n", __FUNCTION__, InstructionSize);
+
+    if (InstructionSize < sizeof(This->JumpInstructions16)) {
+        klog("[Detour] %s: Hooking Requires a minimum of %d bytes to write jump!\n", __FUNCTION__,
+             (int)sizeof(This->JumpInstructions64));
+        return NULL;
+    }
+
+    This->TrampolinePtr = malloc(sizeof(This->JumpInstructions64));
+
+    if (This->TrampolinePtr == 0) {
+        klog("[Detour] %s: malloc failed.\n", __FUNCTION__);
+        return 0;
+    }
+
+    Detour_WriteJump64(This, This->TrampolinePtr, (uint64_t)HookPtr);
+
+    // Save Pointers for later
+    This->FunctionPtr = (void*)FunctionPtr;
+    This->HookPtr = HookPtr;
+
+    // Set protection.
+    sceKernelMprotect((void*)(FunctionPtr - 5), InstructionSize + 5, VM_PROT_ALL);
+
+    // Allocate Executable memory for stub and write instructions to stub and a jump back to
+    // original execution.
+    This->StubSize = (InstructionSize + sizeof(This->JumpInstructions64));
+
+    int res = sceKernelMmap(0, This->StubSize, VM_PROT_ALL, 0x2000 | 0x1000 | 0x2, -1, 0, &This->StubPtr);
+
+    if (res < 0 || This->StubPtr == 0) {
+        klog("[Detour] %s: sceKernelMmap failed (0x%X).\n", __FUNCTION__, res);
+        return 0;
+    }
+
+    memcpy(This->StubPtr, (void*)FunctionPtr, InstructionSize);
+    Detour_WriteJump64(This, (void*)((uint64_t)This->StubPtr + InstructionSize),
+                       (uint64_t)(FunctionPtr + InstructionSize));
+
+    // write back jump
+    memset((void*)FunctionPtr, 0x90, InstructionSize);
+    Detour_WriteJump16(This, (void*)FunctionPtr);
+
+    // Write jump from function to hook.
+    Detour_WriteJump32(This, (void*)(FunctionPtr - 5), (uint64_t)This->TrampolinePtr);
+
+    klog("[Detour] %s: Detour Written Successfully! (FunctionPtr: %p - HookPtr: %p - "
+         "HookPtrTrampoline: %p - StubPtr: %p - StubSize: %zu)\n",
+         __FUNCTION__, This->FunctionPtr, This->HookPtr, This->TrampolinePtr, This->StubPtr,
+         This->StubSize);
+
+    return This->StubPtr;
+};
+
 void Detour_RestoreFunction(Detour *This) {
     void* RestorePtr = 0;
     size_t RestoreSize = 0;
@@ -191,6 +264,11 @@ void Detour_RestoreFunction(Detour *This) {
 
     if (This->StubPtr) {
         switch (This->Mode) {
+            case DetourMode_x16:
+                RestorePtr = This->FunctionPtr;
+                RestoreSize = This->StubSize - sizeof(This->JumpInstructions16);
+                break;
+
             case DetourMode_x32:
                 RestorePtr = This->FunctionPtr;
                 RestoreSize = This->StubSize - sizeof(This->JumpInstructions32);
@@ -218,6 +296,8 @@ void Detour_Construct(Detour *This, DetourMode Mode) {
     This->FunctionPtr = 0;
     This->TrampolinePtr = 0;
     This->HookPtr = 0;
+    uint8_t ji16[] = { 0xEB, 0xF9 };
+    memcpy(This->JumpInstructions16, ji16, sizeof(ji16));
     uint8_t ji32[] = { 0xE9, 0x00, 0x00, 0x00, 0x00 };
     memcpy(This->JumpInstructions32, ji32, sizeof(ji32));
     uint8_t ji64[] = { 0xFF, 0x25, 0x00, 0x00, 0x00, 0x00, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
