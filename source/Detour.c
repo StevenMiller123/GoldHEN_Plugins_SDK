@@ -51,10 +51,13 @@ void Detour_WriteJump64(Detour *This, void *Address, uint64_t Destination) {
 }
 
 void Detour_WriteJump32(Detour *This, void *Address, uint64_t Destination) {
-    uint32_t Offset = (uint32_t)(Destination - ((uint64_t) Address + sizeof(This->JumpInstructions32)));
+    uint64_t Offset = (uint64_t)(Destination - ((uint64_t) Address + sizeof(This->JumpInstructions32)));
+    if (Offset != (uint32_t)Offset) {
+        klog("[Detour] %s: offset 0x%lx is too large!\n", __FUNCTION__, Offset);
+    }
 
     // Write the address of our hook to the instruction.
-    *(uint32_t * )(This->JumpInstructions32 + 1) = Offset;
+    *(uint32_t * )(This->JumpInstructions32 + 1) = (uint32_t)Offset;
 
     sceKernelMprotect((void *) Address, sizeof(This->JumpInstructions32), VM_PROT_ALL);
     memcpy(Address, This->JumpInstructions32, sizeof(This->JumpInstructions32));
@@ -69,7 +72,14 @@ uint64_t Detour_GetJumpAddress64(Detour *This, void *Address) {
     return *(uint64_t * )((uint64_t)Address + 6);
 }
 
+void* PATCH_BASE = (void*)0x800000000ul;
+
 void *Detour_DetourFunction(Detour *This, uint64_t FunctionPtr, void *HookPtr) {
+    if (!FunctionPtr  || !HookPtr) {
+        klog("[Detour] %s: FunctionPtr or HookPtr NULL (%p -> %p)\n", __FUNCTION__, (void*)FunctionPtr, HookPtr);
+        return NULL;
+    }
+    
     // Some functions start with a 32-bit relative jump. Instead of writing to this jump,
     // write the Detour to the jump location instead.
     if (*(uint8_t*)FunctionPtr == 0xE9) {
@@ -80,7 +90,7 @@ void *Detour_DetourFunction(Detour *This, uint64_t FunctionPtr, void *HookPtr) {
         klog("[Detour] %s: Redirecting hook from 0x%lx to 0x%lx\n", __FUNCTION__, original, FunctionPtr);
     }
 
-    klog("[Detour] %s: Hooking 0x%lx", __FUNCTION__, FunctionPtr);
+    klog("[Detour] %s: Hooking 0x%lx\n", __FUNCTION__, FunctionPtr);
     switch (This->Mode) {
         case DetourMode_x16:
             return Detour_DetourFunction16(This, FunctionPtr, HookPtr);
@@ -93,11 +103,6 @@ void *Detour_DetourFunction(Detour *This, uint64_t FunctionPtr, void *HookPtr) {
 }
 
 void *Detour_DetourFunction64(Detour *This, uint64_t FunctionPtr, void *HookPtr) {
-    if (!FunctionPtr  || !HookPtr) {
-        klog("[Detour] %s: FunctionPtr or HookPtr NULL (%p -> %p)\n", __FUNCTION__, (void*)FunctionPtr, HookPtr);
-        return NULL;
-    }
-
     uint32_t InstructionSize = Detour_GetInstructionSize(This, FunctionPtr, sizeof(This->JumpInstructions64));
 
     if (InstructionSize < sizeof(This->JumpInstructions64)) {
@@ -106,7 +111,7 @@ void *Detour_DetourFunction64(Detour *This, uint64_t FunctionPtr, void *HookPtr)
         return NULL;
     }
 
-    int res = sceKernelMmap(0, sizeof(This->JumpInstructions64), VM_PROT_ALL, 0x2000 | 0x1000 | 0x2, -1, 0, &This->TrampolinePtr);
+    int res = sceKernelMmap(PATCH_BASE, sizeof(This->JumpInstructions64), VM_PROT_ALL, 0x2000 | 0x1000, -1, 0, &This->TrampolinePtr);
     if (res < 0 || This->TrampolinePtr == 0) {
         klog("[Detour] %s: sceKernelMmap failed (0x%x).\n", __FUNCTION__, res);
         return 0;
@@ -125,7 +130,7 @@ void *Detour_DetourFunction64(Detour *This, uint64_t FunctionPtr, void *HookPtr)
 
     // Allocate Executable memory for stub and write instructions to stub and a jump back to original execution.
     This->StubSize = (InstructionSize + sizeof(This->JumpInstructions64));
-    res = sceKernelMmap(0, This->StubSize, VM_PROT_ALL, 0x2000 | 0x1000 | 0x2, -1, 0, &This->StubPtr);
+    res = sceKernelMmap(PATCH_BASE, This->StubSize, VM_PROT_ALL, 0x2000 | 0x1000, -1, 0, &This->StubPtr);
     if (res < 0 || This->StubPtr == 0) {
         klog("[Detour] %s: sceKernelMmap failed (0x%x).\n", __FUNCTION__, res);
         return 0;
@@ -144,11 +149,6 @@ void *Detour_DetourFunction64(Detour *This, uint64_t FunctionPtr, void *HookPtr)
 }
 
 void *Detour_DetourFunction32(Detour *This, uint64_t FunctionPtr, void *HookPtr) {
-    if (!FunctionPtr || !HookPtr) {
-        klog("[Detour] %s: FunctionPtr or HookPtr NULL (%p -> %p)\n", __FUNCTION__, (void*)FunctionPtr, HookPtr);
-        return NULL;
-    }
-
     size_t InstructionSize = Detour_GetInstructionSize(This, FunctionPtr, sizeof(This->JumpInstructions32));
 
     if (InstructionSize < sizeof(This->JumpInstructions32)) {
@@ -157,7 +157,7 @@ void *Detour_DetourFunction32(Detour *This, uint64_t FunctionPtr, void *HookPtr)
         return NULL;
     }
 
-    int res = sceKernelMmap(0, sizeof(This->JumpInstructions64), VM_PROT_ALL, 0x2000 | 0x1000 | 0x2, -1, 0, &This->TrampolinePtr);
+    int res = sceKernelMmap(PATCH_BASE, sizeof(This->JumpInstructions64), VM_PROT_ALL, 0x2000 | 0x1000, -1, 0, &This->TrampolinePtr);
     if (res < 0 || This->TrampolinePtr == 0) {
         klog("[Detour] %s: sceKernelMmap failed (0x%x).\n", __FUNCTION__, res);
         return 0;
@@ -176,7 +176,7 @@ void *Detour_DetourFunction32(Detour *This, uint64_t FunctionPtr, void *HookPtr)
 
     // Allocate Executable memory for stub and write instructions to stub and a jump back to original execution.
     This->StubSize = (InstructionSize + sizeof(This->JumpInstructions64));
-    res = sceKernelMmap(0, This->StubSize, VM_PROT_ALL, 0x2000 | 0x1000 | 0x2, -1, 0, &This->StubPtr);
+    res = sceKernelMmap(PATCH_BASE, This->StubSize, VM_PROT_ALL, 0x2000 | 0x1000, -1, 0, &This->StubPtr);
     if (res < 0 || This->StubPtr == 0) {
         klog("[Detour] %s: sceKernelMmap failed (0x%x).\n", __FUNCTION__, res);
         return 0;
@@ -195,12 +195,6 @@ void *Detour_DetourFunction32(Detour *This, uint64_t FunctionPtr, void *HookPtr)
 }
 
 void* Detour_DetourFunction16(Detour* This, uint64_t FunctionPtr, void* HookPtr) {
-    if (!FunctionPtr || !HookPtr) {
-        klog("[Detour] %s: FunctionPtr or HookPtr NULL (%p -> %p)\n", __FUNCTION__,
-             (void*)FunctionPtr, HookPtr);
-        return NULL;
-    }
-
     size_t InstructionSize =
         Detour_GetInstructionSize(This, FunctionPtr, sizeof(This->JumpInstructions16));
 
@@ -219,7 +213,7 @@ void* Detour_DetourFunction16(Detour* This, uint64_t FunctionPtr, void* HookPtr)
         }
     }
 
-    int res = sceKernelMmap(0, sizeof(This->JumpInstructions64), VM_PROT_ALL, 0x2000 | 0x1000 | 0x2, -1, 0, &This->TrampolinePtr);
+    int res = sceKernelMmap(PATCH_BASE, sizeof(This->JumpInstructions64), VM_PROT_ALL, 0x2000 | 0x1000, -1, 0, &This->TrampolinePtr);
     if (res != 0 || This->TrampolinePtr == 0) {
         klog("[Detour] %s: sceKernelMmap failed (0x%x).\n", __FUNCTION__, res);
         return 0;
@@ -238,7 +232,7 @@ void* Detour_DetourFunction16(Detour* This, uint64_t FunctionPtr, void* HookPtr)
 
     // Allocate Executable memory for stub and write instructions to stub and a jump back to original execution.
     This->StubSize = (InstructionSize + sizeof(This->JumpInstructions64));
-    res = sceKernelMmap(0, This->StubSize, VM_PROT_ALL, 0x2000 | 0x1000 | 0x2, -1, 0, &This->StubPtr);
+    res = sceKernelMmap(PATCH_BASE, This->StubSize, VM_PROT_ALL, 0x2000 | 0x1000, -1, 0, &This->StubPtr);
     if (res < 0 || This->StubPtr == 0) {
         klog("[Detour] %s: sceKernelMmap failed (0x%x).\n", __FUNCTION__, res);
         return 0;
