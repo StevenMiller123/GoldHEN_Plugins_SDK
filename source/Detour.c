@@ -90,7 +90,6 @@ void *Detour_DetourFunction(Detour *This, uint64_t FunctionPtr, void *HookPtr) {
         klog("[Detour] %s: Redirecting hook from 0x%lx to 0x%lx\n", __FUNCTION__, original, FunctionPtr);
     }
 
-    klog("[Detour] %s: Hooking 0x%lx\n", __FUNCTION__, FunctionPtr);
     switch (This->Mode) {
         case DetourMode_x16:
             return Detour_DetourFunction16(This, FunctionPtr, HookPtr);
@@ -115,8 +114,6 @@ void *Detour_DetourFunction64(Detour *This, uint64_t FunctionPtr, void *HookPtr)
     if (res < 0 || This->TrampolinePtr == 0) {
         klog("[Detour] %s: sceKernelMmap failed (0x%x).\n", __FUNCTION__, res);
         return 0;
-    } else {
-        klog("[Detour] %s: Allocated 0x%p for trampoline.\n", __FUNCTION__, This->TrampolinePtr);
     }
 
     Detour_WriteJump64(This, This->TrampolinePtr, (uint64_t) HookPtr);
@@ -134,8 +131,6 @@ void *Detour_DetourFunction64(Detour *This, uint64_t FunctionPtr, void *HookPtr)
     if (res < 0 || This->StubPtr == 0) {
         klog("[Detour] %s: sceKernelMmap failed (0x%x).\n", __FUNCTION__, res);
         return 0;
-    } else {
-        klog("[Detour] %s: Allocated 0x%p for stub.\n", __FUNCTION__, This->StubPtr);
     }
 
     memcpy(This->StubPtr, (void *) FunctionPtr, InstructionSize);
@@ -161,8 +156,6 @@ void *Detour_DetourFunction32(Detour *This, uint64_t FunctionPtr, void *HookPtr)
     if (res < 0 || This->TrampolinePtr == 0) {
         klog("[Detour] %s: sceKernelMmap failed (0x%x).\n", __FUNCTION__, res);
         return 0;
-    } else {
-        klog("[Detour] %s: Allocated 0x%p for trampoline.\n", __FUNCTION__, This->TrampolinePtr);
     }
 
     Detour_WriteJump64(This, This->TrampolinePtr, (uint64_t) HookPtr);
@@ -180,8 +173,6 @@ void *Detour_DetourFunction32(Detour *This, uint64_t FunctionPtr, void *HookPtr)
     if (res < 0 || This->StubPtr == 0) {
         klog("[Detour] %s: sceKernelMmap failed (0x%x).\n", __FUNCTION__, res);
         return 0;
-    } else {
-        klog("[Detour] %s: Allocated 0x%p for stub.\n", __FUNCTION__, This->StubPtr);
     }
 
     memcpy(This->StubPtr, (void *) FunctionPtr, InstructionSize);
@@ -217,8 +208,6 @@ void* Detour_DetourFunction16(Detour* This, uint64_t FunctionPtr, void* HookPtr)
     if (res != 0 || This->TrampolinePtr == 0) {
         klog("[Detour] %s: sceKernelMmap failed (0x%x).\n", __FUNCTION__, res);
         return 0;
-    } else {
-        klog("[Detour] %s: Allocated 0x%p for trampoline.\n", __FUNCTION__, This->TrampolinePtr);
     }
 
     Detour_WriteJump64(This, This->TrampolinePtr, (uint64_t)HookPtr);
@@ -236,8 +225,6 @@ void* Detour_DetourFunction16(Detour* This, uint64_t FunctionPtr, void* HookPtr)
     if (res < 0 || This->StubPtr == 0) {
         klog("[Detour] %s: sceKernelMmap failed (0x%x).\n", __FUNCTION__, res);
         return 0;
-    } else {
-        klog("[Detour] %s: Allocated 0x%p for stub.\n", __FUNCTION__, This->StubPtr);
     }
 
     memcpy(This->StubPtr, (void*)FunctionPtr, InstructionSize);
