@@ -45,7 +45,7 @@ add_library(GoldHEN::SDK ALIAS goldhen_sdk)
 add_library(GoldHEN::Crt ALIAS goldhen_crt)
 
 target_link_libraries(goldhen_sdk PUBLIC  goldhen_sdk_iface)
-target_link_libraries(goldhen_sdk PRIVATE sceLibcInternal kernel sceSysmodule)
+target_link_libraries(goldhen_sdk PRIVATE SceLibcInternal kernel SceSysmodule)
 
 set_target_properties(goldhen_sdk PROPERTIES
     OUTPUT_NAME "GoldHEN_SDK"
