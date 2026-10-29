@@ -32,12 +32,26 @@ __asm__(
         ".att_syntax prefix \n"
         );
 
+typedef void (*init_fn)(void);
+
+extern init_fn __init_array_start[] __attribute__((weak, visibility("hidden")));
+extern init_fn __init_array_end[] __attribute__((weak, visibility("hidden")));
+extern init_fn __fini_array_start[] __attribute__((weak, visibility("hidden")));
+extern init_fn __fini_array_end[] __attribute__((weak, visibility("hidden")));
+
 int _init(size_t args, const void *argp)
 {
+    for (init_fn *fn = __init_array_start; fn != __init_array_end; ++fn) {
+        (*fn)();
+    }
     return module_start(args, argp);
 }
 
 int _fini(size_t args, const void *argp)
 {
-    return module_stop(args, argp);
+    int ret = module_stop(args, argp);
+    for (init_fn *fn = __fini_array_end; fn != __fini_array_start;) {
+        (*--fn)();
+    }
+    return ret;
 }
