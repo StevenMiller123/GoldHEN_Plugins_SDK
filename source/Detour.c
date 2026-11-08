@@ -132,6 +132,11 @@ void *Detour_DetourFunction(Detour *This, uint64_t FunctionPtr, void *HookPtr) {
         return NULL;
     }
 
+    void* start_addr;
+    void* end_addr;
+    int prot;
+    if (sceKernelQueryMemoryProtection((void*)FunctionPtr, &start_addr, &end_addr, &prot) != 0 || prot == 0) return NULL;
+
     if (Detour_Unprotect(__FUNCTION__, FunctionPtr, DETOUR_READ_SPAN) < 0) return NULL;
 
     // Some functions start with a 32-bit relative jump. Instead of writing to this jump,
