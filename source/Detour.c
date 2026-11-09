@@ -259,7 +259,8 @@ void* Detour_DetourFunction16(Detour* This, uint64_t FunctionPtr, void* HookPtr)
                          sizeof(This->JumpInstructions32)) < 0) return NULL;
 
     for (int i = 1; i <= sizeof(This->JumpInstructions32); i++) {
-        if (*(uint8_t*)(FunctionPtr - i) != 0x90) {
+        uint8_t const b = *(uint8_t*)(FunctionPtr - i);
+        if (b != 0x90 && b != 0xcc) {
             klog("[Detour] %s: Hooking Requires a minimum of %d bytes before the function to write jump!\n", __FUNCTION__,
                  (int)sizeof(This->JumpInstructions32));
             return NULL;
